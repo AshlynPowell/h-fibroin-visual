@@ -12,7 +12,6 @@ fprop = fm.FontProperties(family = 'sans serif')
 
 def readFile(path):
 	# Takes in path to fasta file with one or two h fibroin sequences
-
 	with open(path) as file:
 		sequences = file.read().strip().split("\n")
 		seqs = []
@@ -23,27 +22,25 @@ def readFile(path):
 
 def organizeData(sequence):
 	# Split given sequence at S blocks
-
-	# print("yes")
-	sequence = sequence.replace("-","")
-
 	# # Caddisfly
-	search = r"S.S.S"
-	search = r"SISR" # hesp
-	# search = r"QTPTI" # arcto
-	# search = r"GPWGR"
-	# search = r"KGRRG"
+	search = r"S.S.S" 
+	# search = r"SISR" # hesp
+	# search = r"[DS][VA]SVSLSVSV" # hesp
+	# search = r"(?:SVSVSLSVSVER|SVSLSVSVEG|RSVSLSVSVERG)"
+	search = r"QTPTI" # arcto
+	# search = r"PWGR" # hesp
+	# search = r"GNA" # vanessa
 
 	# Spiders
 	# MaSp2
 	# search = r".GYGP"
+	# search = r"A{4,7}"
 	# AgSp2
 	# search = r"[PS][EG][STA]TP"
 
 	# Plodia
 	# search = r"SA..A"
 
-	# Trichoptera regex
 	s_patterns = re.findall(search, sequence)
 	i_patterns = re.split(search, sequence)
 
@@ -320,11 +317,60 @@ def colorListDouble(a_patterns1, a_patterns2):
 	hatches1.append("")
 	hatches2.append("")
 
+	# for pattern in unique(x_patterns):
+	# 	print(pattern.strip())
+	# for color in colors_key:
+	# 	print(color)
+	# for pattern in a_patterns1:
+	# 	print(pattern)
+	# print("two")
+	# for pattern in a_patterns2:
+	# 	print(pattern)
+
 	return x_patterns, colors_key, hatches_key, color_dict, colors1, colors2, hatches1, hatches2
+
+def lengthColorDict(lengths, possible_colors):
+	lengths = sorted(unique(lengths))
+	len_color_dict = {}
+	for i,l in enumerate(lengths):
+		len_color_dict[l] = possible_colors[i]
+	return len_color_dict
+
+def fixColorsKey(colors_key, patterns_unique, color_dict):
+	for i, pattern in enumerate(patterns_unique):
+		if i != 0 and i != len(patterns_unique) - 1:
+			new_color = color_dict[len(pattern)]
+			colors_key[i] = new_color
+	return colors_key
+
+def colorHeatmapDouble(lengths1, lengths2):
+	possible_colors = ["#fde725", "#dde318", "#bade28", "#95d840",
+	"#75d054", "#56c667", "#3dbc74", "#29af7f", "#20a386",  "#1f968b", 
+	"#238a8d", "#287d8e", "#2d718e", "#33638d", "#39558c", 
+	"#404688", "#453781", "#482576", "#481467", "#440154"]
+
+	# possible_colors = ["#fde725", "#dde318", "#bade28","#b5de2b", "#6ece58", "#35b779",
+	# "#1f9e89", "#26828e", "#31688e", "#3e4989", "#482878", "#482576", "#481467", "#440154",]
+
+	color_dict = lengthColorDict(lengths1[1:-1]+lengths2[1:-1], possible_colors)
+
+	colors1 = ["#17202A"]
+	colors2 = ["#17202A"]
+
+	for l in lengths1[1:-1]:
+		colors1.append(color_dict[l])
+	for l in lengths2[1:-1]:
+		colors2.append(color_dict[l])
+
+	colors1.append("#17202A")
+	colors2.append("#17202A")
+
+	return colors1, colors2, color_dict
+
 
 def checkSimilarity(keys, seq):
 
-	return None # Use this if we want identical matches, no Xs
+	# return None # Use this if we want identical matches, no Xs
 	# Check the number of differences for each key
 	# If similar key is found, return key, else return none
 
@@ -335,8 +381,10 @@ def checkSimilarity(keys, seq):
 				if key[i] != seq[i]:
 					diffs += 1
 		# if diffs == 1:
-		if diffs <= 5 and diffs >= 1:
-			if combineSeqs(key,seq).count("X") <= 5:
+		# if diffs <= 5 and diffs >= 1:
+			# if combineSeqs(key,seq).count("X") <= 5:
+		if diffs <= 20 and diffs >= 1:
+			if combineSeqs(key,seq).count("X") <= 20 and "XXXXX" not in combineSeqs(key,seq):
 				return [key, combineSeqs(key,seq)]
 	return None
 
@@ -356,12 +404,16 @@ def unique(my_list):
 			new_list.append(x)
 	return new_list
 
-def lengthList(a_patterns):
+def lengthList(a_patterns, trim):
 	# Generate a list of lengths of the patterns to use as height of bars in plot
 
 	length = []
 	for item in a_patterns:
 		length.append(len(item))
+	if trim:
+		# length[0] = round(length[0]/2)
+		length[0] = round(length[0]/3)
+		length[-1] = round(length[-1]/2)
 
 	return length
 
@@ -410,7 +462,7 @@ def horizontalBarPlot(a_patterns, colors, lengths, hatches, path):
 	# plt.show()
 	plt.savefig(path)
 
-def verticalBarPlotSingle(a_patterns, colors, lengths, path, hatches, numbers):
+def verticalBarPlotSingle(a_patterns, colors, lengths, path, hatches):
 	# Plot one allele
 
 	plt.rcParams['pdf.fonttype'] = 42
@@ -422,19 +474,8 @@ def verticalBarPlotSingle(a_patterns, colors, lengths, path, hatches, numbers):
 
 	ax.bar(x_pos, lengths, align='center', color = colors, hatch = hatches)
 	ax.set_xticks([])
-
-	# When position is a positive number, the numbers are at the bottom of the bars (something around position = 2)
-	# When position is a negative number, they are under the bars (something around position = -10)
-	position = 2
-	
-	# Size options: 'xx-small', 'x-small', 'small', 'medium', 'large', 'x-large', 'xx-large'
-	size = "large"
-
-	for i in range(len(x_pos)):
-		ax.text(i,position,numbers[i], color = "red", ha = "center", fontsize = size)
-
-	# ax.set_xlabel("Length of Allele", )
-	# ax.set_ylabel("Number of Residues")
+	ax.set_xlabel("Length of Allele")
+	ax.set_ylabel("Number of Residues")
 	ax.set_title('', fontproperties=fprop)
 
 	# plt.show()
@@ -480,36 +521,42 @@ def verticalBarPlotDouble(colors1, colors2, lengths1, lengths2, hatches1, hatche
 	# plt.show()
 	plt.savefig(path)
 
-def addCounts(patterns, x_patterns, colors, hatches, filter):
+def addCounts(patterns, x_patterns, colors, hatches, filter, num):
 	patterns_counts = []
 	colors_new = []
-	hatches_new = []
+	if hatches != None:
+		hatches_new = []
+	else:
+		hatches_new = None
 	if filter:
 		for i, pattern in enumerate(patterns):
 			if i == 0 or i == (len(patterns) - 1):
-				pattern = f"{pattern} ({2})"
+				pattern = f"{pattern} ({num})"
 				patterns_counts.append(pattern)
 				colors_new.append(colors[i])
-				hatches_new.append(hatches[i])
+				if hatches != None:
+					hatches_new.append(hatches[i])
 			elif x_patterns.count(pattern) < 3:
 				continue
 			else:
 				pattern = f"{pattern} ({x_patterns.count(pattern)})"
 				patterns_counts.append(pattern)
 				colors_new.append(colors[i])
-				hatches_new.append(hatches[i])
+				if hatches != None:
+					hatches_new.append(hatches[i])
 	else:
 		for i, pattern in enumerate(patterns):
 			if i == 0 or i == (len(patterns) - 1):
-				pattern = f"{pattern} ({2})"
+				pattern = f"{pattern} ({num})"
 			else:
 				pattern = f"{pattern} ({x_patterns.count(pattern)})"
 			patterns_counts.append(pattern)
 			colors_new.append(colors[i])
-			hatches_new.append(hatches[i])
-	return patterns_counts, colors_new, hatches_new    
+			if hatches != None:
+				hatches_new.append(hatches[i])
+	return patterns_counts, colors_new, hatches_new
 
-def makeLegend(patterns, colors, hatches, path, numbers):
+def makeLegend(patterns, colors, hatches, path):
 
 	fig, ax = plt.subplots()
 	
@@ -517,9 +564,18 @@ def makeLegend(patterns, colors, hatches, path, numbers):
 	fig.set_figheight(13)
 	plt.rcParams['pdf.fonttype'] = 42
 
+	y_pos = np.arange(len(colors))
 	x_pos = list(itertools.repeat(3, len(colors)))
 
-	ax.barh(patterns[::-1], x_pos, align='center', color=colors[::-1], hatch = hatches[::-1])
+	# for i, x in enumerate(colors):
+	# 	print(x)
+	# 	print(patterns[i])
+	# len(colors), len(hatches), len(patterns[::-1]))
+	# print(len(colors), len(patterns), len(hatches))
+	if hatches != None:
+		ax.barh(patterns[::-1], x_pos, align='center', color=colors[::-1], hatch = hatches[::-1])
+	else:
+		ax.barh(patterns[::-1], x_pos, align='center', color=colors[::-1])
 
 	right = ax.spines["right"]
 	right.set_visible(False)
@@ -535,13 +591,6 @@ def makeLegend(patterns, colors, hatches, path, numbers):
 	ax.set_xticks([])
 	ax.tick_params(axis='y', which='major', pad=15)
 	ax.yaxis.tick_right()
-	
-	# Size options: 'xx-small', 'x-small', 'small', 'medium', 'large', 'x-large', 'xx-large'
-	size = "large"
-
-	numbers = numbers[::-1]
-	for i in range(len(x_pos)):
-		ax.text(-3,i, numbers[i], color = "red", ha = "center", va = "center", fontsize = size)
 
 	plt.savefig(path, bbox_inches="tight")
 
@@ -579,13 +628,6 @@ def addNumbers(nuc_seqs, number_list):
 		combo = f"{nuc} ({number_list[i]})"
 		combined.append(combo)
 	return combined
-
-def addNumbersKey(patterns):
-	new = []
-	for i, pattern in enumerate(patterns):
-		new_pattern = f"{i+1}: {pattern}"
-		new.append(new_pattern)
-	return new
 
 def outputPatterns(a_patterns, path, sep):
 	with open(path, "w") as file:
@@ -651,37 +693,65 @@ def outputGapsToFix(gaps, path):
 			line = ",".join([str(gaps[0][i]), gaps[1][i], gaps[2][i]])
 			file.write(line + "\n")
 
-def readCSV(input_csv):
+def readCSV(input_csv, gaps):
 	lengths = []
 	colors = []
 	hatches = []
 	with open(input_csv) as csv:
 		for line in csv:
-			items = line.strip().split(",")
-			lengths.append(int(items[0]))
-			colors.append(items[1])
-			hatches.append(items[2])
+			if gaps:
+				items = line.strip().split(",")
+				lengths.append(int(items[0]))
+				colors.append(items[1])
+				hatches.append(items[2])
+			elif line.strip() != "0,#17202A,":
+				items = line.strip().split(",")
+				lengths.append(int(items[0]))
+				colors.append(items[1])
+				hatches.append(items[2])
 	return lengths, colors, hatches
 
-def toString(numbers):
-	strings = []
-	for number in numbers:
-		strings.append(str(number))
-	return strings
+def keyCSV(input_csv):
+	path = "AargTX_AgSp2_pep_legend.pdf"
+	patterns = []
+	colors = []
+	hatches = []
+	with open(input_csv) as csv:
+		for line in csv:
+			items = line.strip().split(",")
+			patterns.append(items[0])
+			colors.append(items[1])
+			hatches.append("")
+	makeLegend(patterns, colors, hatches, path)
 
 
 if __name__ == "__main__":
+	gaps = True
+	gaps = False
+	heatmap = True
+	heatmap = False
+	trim = True
+	# trim = False
 	filename = argv[1]
 	if filename.endswith(".csv"):
 		if "lengend" in filename:
 			keyCSV(input_csv)
 		else:
-			lengths1, colors1, hatches1 = readCSV(filename)
-			lengths2, colors2, hatches2 = readCSV(argv[2])
-			figure_path = filename.split(".")[0].strip("1") + ".pdf"
+			lengths1, colors1, hatches1 = readCSV(filename, gaps)
+			lengths2, colors2, hatches2 = readCSV(argv[2], gaps)
+			if gaps:
+				figure_path = filename.split(".")[0].strip("1") + ".pdf"
+			else:
+				figure_path = filename.split(".")[0].strip("1").rstrip("_fix_gaps_") + "_no_gaps.pdf"
+			print(figure_path)
 			verticalBarPlotDouble(colors1, colors2, lengths1, lengths2, hatches1, hatches2, figure_path)
 	else:
 		seqs = readFile(filename)
+		nucs = False
+		if len(argv) > 2:
+			nuc_file = argv[2]
+			nuc_seqs = readFile(nuc_file)
+			nucs = True
 		if len(seqs) == 1:
 			outfile = filename.split(".")[0] + "_patterns.txt"
 			figure_path = filename.split(".")[0] + ".pdf"
@@ -690,21 +760,21 @@ if __name__ == "__main__":
 			a_patterns = organizeData(seq)
 			x_patterns, colors_key, hatches_key, color_dict, colors, hatches = colorListSingle(a_patterns)
 			patterns_unique = unique(x_patterns)
-			lengths = lengthList(a_patterns)
+			lengths = lengthList(a_patterns, trim)
 
-			numbers, number_dict, start = organizeDataNumeric(a_patterns, {}, 1)
+			# number_list, number_dict = organizeDataNumeric(a_patterns, {})
+			# number_path = filename.split(".")[0] + "_numbers.txt"
+			# outputPatterns(number_list, number_path, "\n")
 
-			outputPatterns(addNumbers(a_patterns, numbers), outfile, "\n")
+			outputPatterns(a_patterns, outfile, "\n")
 			# outputPatterns(x_patterns, "x_" + outfile, "\n")
 			# horizontalBarPlot(a_patterns, colors, lengths, hatches, figure_path)
-			print(len(a_patterns), len(numbers))
-			verticalBarPlotSingle(a_patterns, colors, lengths, figure_path, hatches, toString(numbers))
-			patterns_unique, colors_key, hatches_key = addCounts(patterns_unique, x_patterns, colors_key, hatches_key, False)
-			makeLegend(patterns_unique, colors_key, hatches_key, legend_path, unique(numbers))
-
+			verticalBarPlotSingle(a_patterns, colors, lengths, figure_path, hatches)
+			patterns_unique, colors_key, hatches_key = addCounts(patterns_unique, x_patterns, colors_key, hatches_key, False,1)
+			makeLegend(patterns_unique, colors_key, hatches_key, legend_path)
 			legend_txt = filename.split(".")[0] + "_legend.txt"
 
-			outputPatterns(addNumbersKey(patterns_unique), legend_txt, "\n")
+			outputPatterns(patterns_unique, legend_txt, "\n")
 			
 		else:
 			outfile1 = filename.split(".")[0] + "_patterns1.txt"
@@ -716,10 +786,39 @@ if __name__ == "__main__":
 			a_patterns1 = organizeData(seq1.replace("-",""))
 			a_patterns2 = organizeData(seq2.replace("-",""))
 
+			if gaps:
+				gap_patterns1 = gapPattterns(organizeData(seq1))
+				gap_patterns2 = gapPattterns(organizeData(seq2))
+				a_patterns1 = removeGaps(gap_patterns1)
+				a_patterns2 = removeGaps(gap_patterns2)
+				outputPatterns(gap_patterns1, outfile1, "\n")
+				outputPatterns(gap_patterns2, outfile2, "\n")
+
 			x_patterns, colors_key, hatches_key, color_dict, colors1, colors2, hatches1, hatches2 = colorListDouble(a_patterns1, a_patterns2)
-			lengths1 = lengthList(a_patterns1)
-			lengths2 = lengthList(a_patterns2)
+			lengths1 = lengthList(a_patterns1, trim)
+			lengths2 = lengthList(a_patterns2, trim)
 			patterns_unique = unique(x_patterns)
+
+			if heatmap:
+				colors1, colors2, color_dict = colorHeatmapDouble(lengths1, lengths2)
+				colors_key = fixColorsKey(colors_key, patterns_unique, color_dict)
+				hatches_key = None
+
+
+			if gaps:
+				average = (sum(lengths1) + sum(lengths2)) / (len(lengths1) + len(lengths2))
+				index1 = gapIndex(gap_patterns1, average)
+				index2 = gapIndex(gap_patterns2, average)
+
+				colors1 = addGaps(colors1, "#17202A", index1)
+				colors2 = addGaps(colors2, "#17202A", index2)
+				lengths1 = addGaps(lengths1, 0, index1)
+				lengths2 = addGaps(lengths2, 0, index2)
+				hatches1 = addGaps(hatches1, "", index1)
+				hatches2 = addGaps(hatches2, "", index2)
+
+				# print(len(colors1), len(lengths1), len(hatches1), len(a_patterns1))
+				# print(len(colors2), len(lengths2), len(hatches2), len(a_patterns2))
 
 			numbers1, number_dict, start = organizeDataNumeric(a_patterns1, {}, 1)
 			numbers2, number_dict, start = organizeDataNumeric(a_patterns2, number_dict, start)
@@ -730,16 +829,29 @@ if __name__ == "__main__":
 			# outputPatterns(x_patterns, "x_" + outfile1, "\n")
 
 			verticalBarPlotDouble(colors1, colors2, lengths1, lengths2, hatches1, hatches2, figure_path)
-			patterns_unique, colors_key, hatches_key = addCounts(patterns_unique, x_patterns, colors_key, hatches_key, False)
-			makeLegend(patterns_unique, colors_key, hatches_key, legend_path)
+			patterns_unique, colors_key, hatches_key = addCounts(patterns_unique, x_patterns, colors_key, hatches_key, False, 2)
+			makeLegend(patterns_unique, colors_key, hatches_key, legend_path)	
 
-			legend_txt = filename.split(".")[0] + "_legend.txt"
-
-			outputPatterns(addNumbersKey(patterns_unique), legend_txt, "\n")
+			# legend_txt = filename.split(".")[0] + "_legend.txt"
+			# outputPatterns(patterns_unique, legend_txt, "\n"))		
 
 			fixPath1 = filename.split(".")[0] + "_fix_gaps_1.csv"
 			fixPath2 = filename.split(".")[0] + "_fix_gaps_2.csv"
-			# outputGapsToFix([lengths1, colors1, hatches1],fixPath1)
-			# outputGapsToFix([lengths2, colors2, hatches2],fixPath2)
+			outputGapsToFix([lengths1, colors1, hatches1],fixPath1)
+			outputGapsToFix([lengths2, colors2, hatches2],fixPath2)
 			
-			
+			if nucs:
+				# nuc_path1 = filename.split(".")[0] + "_nuc_patterns1.txt"
+				# nuc_path2 = filename.split(".")[0] + "_nuc_patterns2.txt"
+				nuc_seq1 = nuc_seqs[0]
+				nuc_seq2 = nuc_seqs[1]
+				nuc_patterns1 = splitNucleotides(a_patterns1, nuc_seq1)
+				nuc_patterns2 = splitNucleotides(a_patterns2, nuc_seq2)
+				counts = countsDict(a_patterns1, a_patterns2)
+				index_dicts = indexDictionary(4, counts, a_patterns1, a_patterns2)
+				outputMotifs(nuc_patterns1, nuc_patterns2, index_dicts, filename.split(".")[0])
+
+				# outputPatterns(addNumbers(nuc_patterns1, numbers1), nuc_path1, "\n")
+				# outputPatterns(addNumbers(nuc_patterns2, numbers2), nuc_path2, "\n")
+
+
